@@ -13,7 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+// eslint-disable-next-line simple-import-sort/imports
 import * as tf from '@tensorflow/tfjs';
+import '@tensorflow/tfjs-backend-webgpu';
 
 import { NoteEventTime } from './toMidi';
 
@@ -46,24 +49,24 @@ const OVERLAP_LENGTH_FRAMES = N_OVERLAPPING_FRAMES * FFT_HOP;
 const HOP_SIZE = AUDIO_N_SAMPLES - OVERLAP_LENGTH_FRAMES;
 
 export class BasicPitch {
-  model: Promise<tf.GraphModel>;
+  modelFile: string = './model/model.json';
+  model: tf.GraphModel | null = null;
 
   /**
    * Create Basic Pitch object.
    * @param modelOrModelPath A GraphModel of an already loaded tf.js graph
    * or a URL pointing to tf.js assets.
    */
-  constructor(modelOrModelPath: string | Promise<tf.GraphModel>) {
+  constructor(modelFile: string | null) {
     if (OVERLAP_LENGTH_FRAMES % 2 !== 0) {
       throw new Error(
         `OVERLAP_LENGTH_FRAMES is not divisible by 2! Is ${OVERLAP_LENGTH_FRAMES}`,
       );
     }
 
-    this.model =
-      typeof modelOrModelPath === 'string'
-        ? tf.loadGraphModel(modelOrModelPath)
-        : modelOrModelPath;
+    if (modelFile) {
+      this.modelFile = modelFile;
+    }
   }
 
   /**
@@ -93,10 +96,10 @@ export class BasicPitch {
     reshapedInput: tf.Tensor3D,
     batchNumber: number,
   ): Promise<[tf.Tensor3D, tf.Tensor3D, tf.Tensor3D]> {
-    const model = await this.model;
+    // const model = await tf.loadGraphModel(this.modelFile);
     const singleBatch = tf.slice(reshapedInput, batchNumber, 1);
 
-    const results = model.execute(singleBatch, [
+    const results = this.model!.execute(singleBatch, [
       OUTPUT_TO_TENSOR_NAME.frames,
       OUTPUT_TO_TENSOR_NAME.onsets,
       OUTPUT_TO_TENSOR_NAME.contours,
@@ -162,6 +165,10 @@ export class BasicPitch {
     onComplete: OnCompleteCallback,
     percentCallback: (percent: number) => void,
   ) {
+    await tf.setBackend('webgpu');
+    await tf.ready();
+    this.model = await tf.loadGraphModel(this.modelFile);
+
     let singleChannelAudioData: Float32Array;
     if (resampledBuffer instanceof Float32Array) {
       singleChannelAudioData = resampledBuffer;
