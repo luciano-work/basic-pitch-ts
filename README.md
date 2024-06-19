@@ -143,5 +143,3 @@ Unless required by applicable law or agreed to in writing, software distributed 
 [eslint]: https://eslint.org/
 [jest]: http://jestjs.io/
 [semantic-release]: https://github.com/semantic-release/semantic-release
-
----
